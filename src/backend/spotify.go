@@ -17,7 +17,7 @@ import (
 )
 
 const spotifyAPIBase = "https://api.spotify.com/v1"
-const spotifyTokenURL = "https://accounts.spotify.com/api/token"
+const spotifyTokenURL = "https://accounts.spotify.com/api/token" // #nosec G101 -- URL, not a credential
 
 type SpotifyClient struct {
 	clientID     string
@@ -63,7 +63,8 @@ func loadSecretsFromFile(path, integrationID string) map[string]string {
 	if strings.TrimSpace(path) == "" || strings.TrimSpace(integrationID) == "" {
 		return map[string]string{}
 	}
-	data, err := os.ReadFile(path)
+	path = filepath.Clean(path)
+	data, err := os.ReadFile(path) // #nosec G304 -- path comes from env/default config
 	if err != nil {
 		return map[string]string{}
 	}
