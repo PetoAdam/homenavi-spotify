@@ -67,7 +67,7 @@ go run ./src/backend/cmd/integration
 From the repo root:
 
 ```bash
-docker build -t homenavi-spotify:local integrations/spotify
+docker build -t homenavi-spotify:local .
 ```
 
 Run the container on the Homenavi network (using the repo file path):
@@ -85,12 +85,58 @@ docker run --rm \
 
 If you don’t need the admin secrets endpoint, omit the JWT mount/env lines.
 
-After updating the installed integrations list, use the Admin → Integrations page and click “Refresh integrations” to reload the proxy registry.
+## Integration proxy installation (recommended)
 
-Run the container on the Homenavi network and register it in the integrations config:
+1) Build or pull the image:
+
+```bash
+docker build -t ghcr.io/petoadam/homenavi-spotify:latest .
+```
+
+2) Run the container on the Homenavi network:
+
+```bash
+docker run --rm \
+  --name spotify \
+  --network homenavi_homenavi-network \
+  -v $(pwd)/config/integration.secrets.json:/app/config/integration.secrets.json \
+  -e INTEGRATION_SECRETS_PATH=/app/config/integration.secrets.json \
+  -v $(pwd)/keys/jwt_public.pem:/app/keys/jwt_public.pem:ro \
+  -e JWT_PUBLIC_KEY_PATH=/app/keys/jwt_public.pem \
+  ghcr.io/petoadam/homenavi-spotify:latest
+```
+
+3) Register the integration in the Homenavi config:
 
 ```yaml
 integrations:
   - id: spotify
     upstream: http://spotify:8099
 ```
+
+After updating the installed integrations list, use the Admin → Integrations page and click “Refresh integrations” to reload the proxy registry.
+
+## Helm installation (coming soon)
+
+Planned chart values (subject to change):
+
+```yaml
+image:
+  repository: ghcr.io/petoadam/homenavi-spotify
+  tag: latest
+
+env:
+  INTEGRATION_SECRETS_PATH: /app/config/integration.secrets.json
+  JWT_PUBLIC_KEY_PATH: /app/keys/jwt_public.pem
+
+secrets:
+  spotifyClientId: "<set-via-secret>"
+  spotifyClientSecret: "<set-via-secret>"
+  spotifyRefreshToken: "<set-via-secret>"
+
+integrations:
+  - id: spotify
+    upstream: http://spotify:8099
+```
+
+The chart will create a Deployment + Service and add an `installed.yaml` snippet for integration‑proxy. JWT public key mounting will be optional for deployments that do not use the admin secrets endpoint.
