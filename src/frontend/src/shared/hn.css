@@ -451,12 +451,29 @@ a { color: inherit; }
   text-align: center;
 }
 
+.spotify-range-row span:last-child {
+  text-align: right;
+}
+
 .spotify-range {
   min-width: 0;
 }
 
 .spotify-compact .spotify-range-row {
-  grid-template-columns: auto minmax(140px, 1fr) auto;
+  grid-template-columns: auto minmax(120px, 1fr) auto;
+  gap: 6px;
+}
+
+@media (max-width: 520px) {
+  .spotify-range-row {
+    grid-template-columns: auto minmax(90px, 1fr) auto;
+    gap: 6px;
+  }
+
+  .spotify-range-row span {
+    min-width: 28px;
+    font-size: 11px;
+  }
 }
 
 .spotify-search {
