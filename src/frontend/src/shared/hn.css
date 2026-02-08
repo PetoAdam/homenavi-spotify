@@ -43,8 +43,10 @@ a { color: inherit; }
 }
 
 .hn-tab-shell {
-  height: 100%;
-  overflow-y: auto;
+  height: auto;
+  min-height: 100%;
+  overflow-x: hidden;
+  overflow-y: visible;
   padding: 18px;
 }
 
@@ -58,6 +60,11 @@ a { color: inherit; }
   display: flex;
   flex-direction: column;
   gap: 16px;
+  height: auto;
+  min-height: 100%;
+}
+
+.spotify-shell.spotify-compact {
   height: 100%;
 }
 

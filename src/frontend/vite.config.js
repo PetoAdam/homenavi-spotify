@@ -51,7 +51,12 @@ export default defineConfig(async () => {
       outDir: resolve(here, 'dist', target),
       emptyOutDir: true,
       rollupOptions: {
-        input: inputHtml
+        input: inputHtml,
+        output: {
+          entryFileNames: 'assets/[name].js',
+          chunkFileNames: 'assets/[name].js',
+          assetFileNames: 'assets/[name][extname]'
+        }
       }
     },
     server: {

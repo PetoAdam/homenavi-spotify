@@ -51,6 +51,13 @@ npm run dev:tab
 npm run dev:widget
 ```
 
+UI preview during dev:
+
+- Tab dev server: http://localhost:10000/tab.html
+- Widget dev server: http://localhost:10001/widget.html
+
+If the port changed (free-port auto-pick), use the exact URL printed by the dev server.
+
 ## Build + run
 
 ```bash
@@ -61,6 +68,38 @@ npm run build
 cd ../..
 go run ./src/backend/cmd/integration
 ```
+
+## Local build + run with Homenavi stack
+
+Use this to test the integration through integration-proxy with local assets:
+
+```bash
+cd src/frontend
+npm install
+npm run build
+
+cd ../..
+docker build -t homenavi-spotify:local .
+
+docker run --rm -d \
+  --name spotify \
+  --network homenavi-network \
+  -v /home/adam/Projects/homenavi/integrations/secrets/spotify.secrets.json:/app/config/integration.secrets.json \
+  -e INTEGRATION_SECRETS_PATH=/app/config/integration.secrets.json \
+  -v /home/adam/Projects/homenavi/keys/jwt_public.pem:/app/keys/jwt_public.pem:ro \
+  -e JWT_PUBLIC_KEY_PATH=/app/keys/jwt_public.pem \
+  homenavi-spotify:local
+```
+
+Ensure the Homenavi integrations list includes:
+
+```yaml
+integrations:
+  - id: spotify
+    upstream: http://spotify:8099
+```
+
+Then use Admin → Integrations → “Refresh integrations” to reload the proxy registry.
 
 ## Docker
 
