@@ -69,6 +69,15 @@ cd ../..
 go run ./src/backend/cmd/integration
 ```
 
+## Marketplace metadata
+
+Marketplace-specific metadata and assets live in:
+
+- `marketplace/metadata.json`
+- `marketplace/assets/`
+
+Update the icon and images there to control how the integration appears in the marketplace.
+
 ## Local build + run with Homenavi stack
 
 Use this to test the integration through integration-proxy with local assets:
@@ -100,6 +109,26 @@ integrations:
 ```
 
 Then use Admin → Integrations → “Refresh integrations” to reload the proxy registry.
+
+## Docker Compose (integration-proxy install)
+
+This uses the production image and matches how the marketplace installs it:
+
+```bash
+INTEGRATIONS_ROOT=/path/to/homenavi \
+  docker compose -f compose/docker-compose.integration.yml up -d
+```
+
+Set `HN_VERSION=vX.Y.Z` to pin a release tag.
+
+## Docker Compose (local dev image)
+
+Use this to build and run your local image against a running Homenavi stack:
+
+```bash
+HOMENAVI_ROOT=/path/to/homenavi \
+  docker compose -f compose/docker-compose.dev.yml up --build
+```
 
 ## Docker
 

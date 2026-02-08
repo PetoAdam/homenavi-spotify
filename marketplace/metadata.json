@@ -1,0 +1,19 @@
+{
+  "id": "spotify",
+  "name": "Spotify",
+  "description": "Control playback, devices, and playlists from HomeNavi.",
+  "publisher": "HomeNavi",
+  "homepage": "https://www.spotify.com",
+  "repo_url": "https://github.com/petoadam/homenavi-spotify",
+  "listen_path": "/integrations/spotify",
+  "compose_file": "compose/docker-compose.integration.yml",
+  "image": "ghcr.io/petoadam/homenavi-spotify",
+  "assets": {
+    "icon": "fa:spotify"
+  },
+  "images": [
+    "marketplace/assets/spotify-player.png",
+    "marketplace/assets/spotify-search.png",
+    "marketplace/assets/hero.png"
+  ]
+}
