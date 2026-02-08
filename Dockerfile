@@ -1,4 +1,4 @@
-FROM node:20-alpine AS webbuild
+FROM node:20-bookworm-slim AS webbuild
 WORKDIR /src
 
 COPY src/frontend/package.json ./src/frontend/package.json
