@@ -25,4 +25,4 @@ jobs:
           ghcr_token: ${{ secrets.GITHUB_TOKEN }}
           manifest_path: manifest/homenavi-integration.json
           metadata_path: marketplace/metadata.json
-          marketplace_api_url: ${{ secrets.MARKETPLACE_API_URL }}
+          marketplace_api_url: https://marketplace.homenavi.org
