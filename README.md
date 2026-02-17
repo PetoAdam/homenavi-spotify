@@ -15,6 +15,13 @@ A full Spotify player integration with a dedicated tab and a dashboard widget. S
 - Queue rendering
 - Search (tab) with Play Now + Add to Queue
 
+## Release security gates
+
+- `verify.yml` is the main gate (manifest/structure checks, tests, `go vet`, `gosec`, Docker build, and Trivy scan).
+- `release.yml` runs `verify.yml` as a required stage, so publish only proceeds after verification passes.
+- The shared `PetoAdam/homenavi/.github/actions/integration-release@main` action also enforces central verification (`integration-verify` + `go vet` + `gosec`) during release.
+- Release emits SBOM + provenance and signs published image digests keylessly with Cosign.
+
 ## Environment variables
 
 Copy the example env file and fill in your secrets:

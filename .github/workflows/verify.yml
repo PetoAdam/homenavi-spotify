@@ -3,8 +3,11 @@ name: Verify Integration
 on:
   push:
     branches: ["**"]
+    tags:
+      - "v*"
   pull_request:
     branches: ["main"]
+  workflow_call:
 
 jobs:
   verify:
@@ -21,7 +24,10 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version: "1.22"
+          go-version-file: ./go.mod
+
+      - name: go vet
+        run: go vet ./...
 
       - name: Homenavi verify
         uses: PetoAdam/homenavi/.github/actions/integration-verify@main
@@ -40,3 +46,13 @@ jobs:
           file: ./Dockerfile
           push: false
           tags: homenavi-integration:latest
+
+      - name: Trivy image scan
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          image-ref: homenavi-integration:latest
+          format: table
+          exit-code: '1'
+          ignore-unfixed: true
+          vuln-type: 'os,library'
+          severity: 'CRITICAL,HIGH'

@@ -8,7 +8,7 @@ COPY src/frontend ./src/frontend
 RUN cd src/frontend && npm run build
 
 
-FROM golang:1.22-alpine AS build
+FROM golang:1.24-alpine AS build
 WORKDIR /src
 RUN apk add --no-cache ca-certificates
 
@@ -23,7 +23,7 @@ COPY --from=webbuild /src/web/widgets ./web/widgets
 RUN CGO_ENABLED=0 go build -o /out/integration ./src/backend/cmd/integration
 
 
-FROM alpine:3.19
+FROM alpine:3.21
 RUN apk add --no-cache ca-certificates
 WORKDIR /app
 RUN mkdir -p /app/config
