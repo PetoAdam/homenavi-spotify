@@ -102,12 +102,14 @@ npm run build
 cd ../..
 docker build -t homenavi-spotify:local .
 
+export INTEGRATIONS_ROOT=/path/to/homenavi
+
 docker run --rm -d \
   --name spotify \
   --network homenavi-network \
-  -v /home/adam/Projects/homenavi/integrations/secrets/spotify.secrets.json:/app/config/integration.secrets.json \
+  -v ${INTEGRATIONS_ROOT}/integrations/secrets/spotify.secrets.json:/app/config/integration.secrets.json \
   -e INTEGRATION_SECRETS_PATH=/app/config/integration.secrets.json \
-  -v /home/adam/Projects/homenavi/keys/jwt_public.pem:/app/keys/jwt_public.pem:ro \
+  -v ${INTEGRATIONS_ROOT}/keys/jwt_public.pem:/app/keys/jwt_public.pem:ro \
   -e JWT_PUBLIC_KEY_PATH=/app/keys/jwt_public.pem \
   homenavi-spotify:local
 ```
