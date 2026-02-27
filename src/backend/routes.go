@@ -20,7 +20,7 @@ func RegisterAPIRoutes(mux *http.ServeMux, spotify *SpotifyClient, playback *Pla
 		}
 		status, body, err := spotify.Do(r.Context(), http.MethodGet, "/me/player", nil, nil)
 		if status == http.StatusNoContent {
-			if cached, ok := playback.Get(); ok {
+			if cached, ok := pausedCachedPlayback(playback); ok {
 				writeRawJSON(w, http.StatusOK, cached)
 				return
 			}
@@ -29,7 +29,7 @@ func RegisterAPIRoutes(mux *http.ServeMux, spotify *SpotifyClient, playback *Pla
 		}
 		if err != nil {
 			if isNoActiveDevice(body, err) {
-				if cached, ok := playback.Get(); ok {
+				if cached, ok := pausedCachedPlayback(playback); ok {
 					writeRawJSON(w, http.StatusOK, cached)
 					return
 				}
@@ -372,7 +372,7 @@ func writeSpotifyResponse(w http.ResponseWriter, status int, body []byte, err er
 
 func writeSpotifyResponseWithCache(w http.ResponseWriter, status int, body []byte, err error, playback *PlaybackCache) {
 	if err != nil && isNoActiveDevice(body, err) {
-		if cached, ok := playback.Get(); ok {
+		if cached, ok := pausedCachedPlayback(playback); ok {
 			writeRawJSON(w, http.StatusOK, cached)
 			return
 		}
@@ -380,6 +380,25 @@ func writeSpotifyResponseWithCache(w http.ResponseWriter, status int, body []byt
 		return
 	}
 	writeSpotifyResponse(w, status, body, err)
+}
+
+func pausedCachedPlayback(playback *PlaybackCache) ([]byte, bool) {
+	cached, ok := playback.Get()
+	if !ok {
+		return nil, false
+	}
+
+	var payload map[string]any
+	if err := json.Unmarshal(cached, &payload); err != nil {
+		return cached, true
+	}
+
+	payload["is_playing"] = false
+	normalized, err := json.Marshal(payload)
+	if err != nil {
+		return cached, true
+	}
+	return normalized, true
 }
 
 func isNoActiveDevice(body []byte, err error) bool {
