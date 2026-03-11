@@ -6,7 +6,14 @@
   "homepage": "https://www.spotify.com",
   "repo_url": "https://github.com/petoadam/homenavi-spotify",
   "listen_path": "/integrations/spotify",
-  "compose_file": "compose/docker-compose.integration.yml",
+  "deployment_artifacts": {
+    "compose": {
+      "file": "compose/docker-compose.integration.yml"
+    },
+    "helm": {
+      "chart_ref": "oci://ghcr.io/petoadam/homenavi-spotify"
+    }
+  },
   "image": "ghcr.io/petoadam/homenavi-spotify",
   "assets": {
     "icon": "fa:spotify"
