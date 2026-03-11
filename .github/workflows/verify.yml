@@ -45,9 +45,13 @@ jobs:
         with:
           context: .
           file: ./Dockerfile
-          push: false
+          load: true
           tags: homenavi-integration:latest
-          outputs: type=docker,dest=/tmp/homenavi-integration.tar
+
+      - name: Export Docker image archive
+        run: |
+          set -euo pipefail
+          docker save homenavi-integration:latest -o /tmp/homenavi-integration.tar
 
       - name: Trivy image scan
         run: |
