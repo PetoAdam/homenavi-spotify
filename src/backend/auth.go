@@ -22,12 +22,19 @@ type AdminAuth struct {
 
 func NewAdminAuthFromEnv() (*AdminAuth, error) {
 	path := strings.TrimSpace(os.Getenv("JWT_PUBLIC_KEY_PATH"))
-	if path == "" {
+	inlineKey := strings.TrimSpace(os.Getenv("JWT_PUBLIC_KEY"))
+	if path == "" && inlineKey == "" {
 		return &AdminAuth{enabled: false}, nil
 	}
-	keyData, err := os.ReadFile(path) // #nosec G304 -- path comes from env/config
-	if err != nil {
-		return nil, err
+	var keyData []byte
+	if inlineKey != "" {
+		keyData = []byte(inlineKey)
+	} else {
+		var err error
+		keyData, err = os.ReadFile(path) // #nosec G304 -- path comes from env/config
+		if err != nil {
+			return nil, err
+		}
 	}
 	pubKey, err := jwt.ParseRSAPublicKeyFromPEM(keyData)
 	if err != nil {
