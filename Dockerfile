@@ -8,9 +8,8 @@ COPY src/frontend ./src/frontend
 RUN cd src/frontend && npm run build
 
 
-FROM golang:1.25.8-alpine AS build
+FROM golang:1.26.1-alpine3.22 AS build
 WORKDIR /src
-RUN apk add --no-cache ca-certificates
 
 COPY go.mod ./
 COPY go.sum ./
