@@ -8,7 +8,7 @@ COPY src/frontend ./src/frontend
 RUN cd src/frontend && npm run build
 
 
-FROM golang:1.26.1-alpine3.22 AS build
+FROM golang:1.26.2-alpine3.22 AS build
 WORKDIR /src
 
 COPY go.mod ./
