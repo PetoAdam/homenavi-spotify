@@ -8,7 +8,7 @@ COPY src/frontend ./src/frontend
 RUN cd src/frontend && npm run build
 
 
-FROM golang:1.26.5-alpine3.22 AS build
+FROM golang:1.26.5-alpine3.24 AS build
 WORKDIR /src
 
 COPY go.mod ./
@@ -22,7 +22,7 @@ COPY --from=webbuild /src/web/widgets ./web/widgets
 RUN CGO_ENABLED=0 go build -o /out/integration ./src/backend/cmd/integration
 
 
-FROM alpine:3.21
+FROM alpine:3.24
 RUN apk add --no-cache ca-certificates
 WORKDIR /app
 RUN mkdir -p /app/config
