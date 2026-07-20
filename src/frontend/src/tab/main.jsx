@@ -97,10 +97,7 @@ function SetupApp() {
         throw new Error('Missing Spotify authorization URL');
       }
       
-      // Open Spotify login in a new tab to avoid embedding security restrictions
-      window.open(response.auth_url, '_blank', 'noopener,noreferrer');
-      
-      // Poll for successful authentication completion
+      // Start polling for successful authentication before navigating
       const pollInterval = window.setInterval(async () => {
         try {
           const authResp = await fetchAuthStatus();
@@ -115,14 +112,21 @@ function SetupApp() {
         }
       }, 1000);
       
-      // Stop polling after 5 minutes
-      window.setTimeout(() => {
+      // Set up timeout
+      const timeout = window.setTimeout(() => {
         window.clearInterval(pollInterval);
-        if (authStatus.connected === false) {
+        if (!authStatus.connected) {
           setConnecting(false);
-          setStatus('Spotify login did not complete. Please check the opened tab.');
+          setStatus('Spotify login did not complete.');
         }
       }, 5 * 60 * 1000);
+      
+      // Store interval/timeout IDs in window for cleanup
+      window._spotifyPollInterval = pollInterval;
+      window._spotifyPollTimeout = timeout;
+      
+      // Navigate to Spotify directly - breaks out of iframe context
+      window.location.href = response.auth_url;
     } catch (err) {
       setStatus(err?.message || 'Failed to start Spotify login.');
       setConnecting(false);
