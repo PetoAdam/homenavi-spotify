@@ -15,16 +15,34 @@ function buildUrl(path) {
   return `${base}${path}`;
 }
 
+export function buildIntegrationUrl(path) {
+	return buildUrl(path);
+}
+
 async function jsonRequest(path, options = {}) {
   const resp = await fetch(buildUrl(path), options);
   if (resp.status === 204) return null;
   const text = await resp.text();
+  const contentType = resp.headers.get('content-type') || '';
   if (!resp.ok) {
-    const message = text || 'Request failed';
-    throw new Error(message);
+    let message = text || `Request failed (${resp.status})`;
+    if (contentType.includes('application/json') && text) {
+      try {
+        const parsed = JSON.parse(text);
+        message = parsed?.error || parsed?.message || message;
+      } catch {
+        // Fall back to raw text below.
+      }
+    } else if (/^\s*</.test(text)) {
+      message = `Request failed (${resp.status})`;
+    }
+    const error = new Error(message);
+    error.status = resp.status;
+    error.body = text;
+    error.contentType = contentType;
+    throw error;
   }
   if (!text) return null;
-  const contentType = resp.headers.get('content-type') || '';
   if (!contentType.includes('application/json')) {
     return text;
   }
@@ -118,4 +136,32 @@ export function transferPlayback(deviceId, playOnTransfer = true) {
 export function searchTracks(query) {
   const params = new URLSearchParams({ q: query });
   return jsonRequest(`/api/search?${params.toString()}`);
+}
+
+export function fetchSetup() {
+  return jsonRequest('/api/admin/setup', { method: 'GET' });
+}
+
+export function saveSetup(settings) {
+  return jsonRequest('/api/admin/setup', {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ settings }),
+  });
+}
+
+export function fetchAuthStatus() {
+  return jsonRequest('/api/admin/auth/status', { method: 'GET' });
+}
+
+export function startSpotifyLogin(payload) {
+  return jsonRequest('/api/admin/auth/login', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+}
+
+export function disconnectSpotify() {
+  return jsonRequest('/api/admin/auth/disconnect', { method: 'POST' });
 }

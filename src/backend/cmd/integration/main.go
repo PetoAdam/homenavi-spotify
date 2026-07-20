@@ -28,8 +28,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("read manifest: %v", err)
 	}
-	secretSpecs := backend.ParseSecretSpecs(manifestJSON)
-	secretStore := backend.NewSecretStore(backend.DefaultSecretsPath())
+	setupStore := backend.NewSetupStore(backend.DefaultSetupPath())
 	adminAuth, err := backend.NewAdminAuthFromEnv()
 	if err != nil {
 		log.Fatalf("load admin auth: %v", err)
@@ -45,20 +44,21 @@ func main() {
 		log.Fatalf("web dir error: %v", err)
 	}
 
-	spotifyClient, err := backend.NewSpotifyClientFromEnv()
+	spotifyClient, err := backend.NewSpotifyManagerFromEnv()
 	if err != nil {
 		log.Printf("spotify config missing: %v", err)
 		spotifyClient = nil
 	}
+	spotifyAuth := backend.NewSpotifyAuthAPI(setupStore, adminAuth, spotifyClient)
 
 	s := &backend.Server{
 		WebFS:        webFS,
 		ManifestJSON: manifestJSON,
 		Spotify:      spotifyClient,
 		Playback:     backend.NewPlaybackCache(),
-		SecretStore:  secretStore,
-		SecretSpecs:  secretSpecs,
+		SetupStore:   setupStore,
 		AdminAuth:    adminAuth,
+		SpotifyAuth:  spotifyAuth,
 	}
 	h := s.Routes()
 

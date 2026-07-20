@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"net/url"
 	"os"
@@ -23,6 +24,7 @@ type SpotifyClient struct {
 	clientID     string
 	clientSecret string
 	refreshToken string
+	setupPath    string
 
 	httpClient *http.Client
 	mu         sync.Mutex
@@ -30,23 +32,77 @@ type SpotifyClient struct {
 	expiresAt  time.Time
 }
 
-func NewSpotifyClientFromEnv() (*SpotifyClient, error) {
-	clientID := strings.TrimSpace(getenv("SPOTIFY_CLIENT_ID", ""))
-	clientSecret := strings.TrimSpace(getenv("SPOTIFY_CLIENT_SECRET", ""))
-	refreshToken := strings.TrimSpace(getenv("SPOTIFY_REFRESH_TOKEN", ""))
-	if clientID == "" || clientSecret == "" || refreshToken == "" {
-		secrets := loadSecretsFromFile(selectSecretsPath(), "spotify")
-		if clientID == "" {
-			clientID = strings.TrimSpace(secrets["SPOTIFY_CLIENT_ID"])
-		}
-		if clientSecret == "" {
-			clientSecret = strings.TrimSpace(secrets["SPOTIFY_CLIENT_SECRET"])
-		}
-		if refreshToken == "" {
-			refreshToken = strings.TrimSpace(secrets["SPOTIFY_REFRESH_TOKEN"])
-		}
-	}
+type SpotifyConfig struct {
+	ClientID     string
+	ClientSecret string
+	RefreshToken string
+	SetupPath    string
+}
 
+type SpotifyManager struct {
+	mu                sync.RWMutex
+	client            *SpotifyClient
+	setupPath         string
+	legacySecretsPath string
+}
+
+func NewSpotifyClientFromEnv() (*SpotifyClient, error) {
+	config, err := loadSpotifyConfigFromSources(DefaultSetupPath(), selectSecretsPath())
+	if err != nil {
+		return nil, err
+	}
+	return NewSpotifyClient(config)
+}
+
+func NewSpotifyManagerFromEnv() (*SpotifyManager, error) {
+	manager := &SpotifyManager{
+		setupPath:         DefaultSetupPath(),
+		legacySecretsPath: selectSecretsPath(),
+	}
+	err := manager.Reload()
+	return manager, err
+}
+
+func (m *SpotifyManager) Reload() error {
+	if m == nil {
+		return errors.New("spotify manager is nil")
+	}
+	config, err := loadSpotifyConfigFromSources(m.setupPath, m.legacySecretsPath)
+	if err != nil {
+		m.mu.Lock()
+		m.client = nil
+		m.mu.Unlock()
+		log.Printf("spotify manager reload failed: %v", err)
+		return err
+	}
+	client, err := NewSpotifyClient(config)
+	if err != nil {
+		m.mu.Lock()
+		m.client = nil
+		m.mu.Unlock()
+		log.Printf("spotify manager init failed: %v", err)
+		return err
+	}
+	m.mu.Lock()
+	m.client = client
+	m.mu.Unlock()
+	log.Printf("spotify manager reloaded")
+	return nil
+}
+
+func (m *SpotifyManager) Client() *SpotifyClient {
+	if m == nil {
+		return nil
+	}
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	return m.client
+}
+
+func NewSpotifyClient(config SpotifyConfig) (*SpotifyClient, error) {
+	clientID := strings.TrimSpace(config.ClientID)
+	clientSecret := strings.TrimSpace(config.ClientSecret)
+	refreshToken := strings.TrimSpace(config.RefreshToken)
 	if clientID == "" || clientSecret == "" || refreshToken == "" {
 		return nil, errors.New("missing SPOTIFY_CLIENT_ID, SPOTIFY_CLIENT_SECRET, or SPOTIFY_REFRESH_TOKEN")
 	}
@@ -55,8 +111,51 @@ func NewSpotifyClientFromEnv() (*SpotifyClient, error) {
 		clientID:     clientID,
 		clientSecret: clientSecret,
 		refreshToken: refreshToken,
+		setupPath:    strings.TrimSpace(config.SetupPath),
 		httpClient:   &http.Client{Timeout: 10 * time.Second},
 	}, nil
+}
+
+func loadSpotifyConfigFromSources(setupPath, legacySecretsPath string) (SpotifyConfig, error) {
+	setupValues := loadSetupFromFile(setupPath)
+	legacySecrets := loadSecretsFromFile(legacySecretsPath, "spotify")
+	config := SpotifyConfig{
+		ClientID:     strings.TrimSpace(getenv("SPOTIFY_CLIENT_ID", settingString(setupValues, "client_id"))),
+		ClientSecret: strings.TrimSpace(getenv("SPOTIFY_CLIENT_SECRET", settingString(setupValues, "client_secret"))),
+		RefreshToken: strings.TrimSpace(getenv("SPOTIFY_REFRESH_TOKEN", settingString(setupValues, "refresh_token"))),
+		SetupPath:    strings.TrimSpace(setupPath),
+	}
+	if config.ClientID == "" {
+		config.ClientID = strings.TrimSpace(legacySecrets["SPOTIFY_CLIENT_ID"])
+	}
+	if config.ClientSecret == "" {
+		config.ClientSecret = strings.TrimSpace(legacySecrets["SPOTIFY_CLIENT_SECRET"])
+	}
+	if config.RefreshToken == "" {
+		config.RefreshToken = strings.TrimSpace(legacySecrets["SPOTIFY_REFRESH_TOKEN"])
+	}
+	if config.ClientID == "" || config.ClientSecret == "" || config.RefreshToken == "" {
+		return SpotifyConfig{}, errors.New("missing SPOTIFY_CLIENT_ID, SPOTIFY_CLIENT_SECRET, or SPOTIFY_REFRESH_TOKEN")
+	}
+	return config, nil
+}
+
+func loadSetupFromFile(path string) map[string]any {
+	if strings.TrimSpace(path) == "" {
+		return map[string]any{}
+	}
+	data, err := os.ReadFile(filepath.Clean(path)) // #nosec G304 -- path comes from env/default config
+	if err != nil {
+		return map[string]any{}
+	}
+	var payload map[string]any
+	if err := json.Unmarshal(data, &payload); err != nil {
+		return map[string]any{}
+	}
+	if payload == nil {
+		payload = map[string]any{}
+	}
+	return payload
 }
 
 func loadSecretsFromFile(path, integrationID string) map[string]string {
@@ -190,13 +289,16 @@ func (c *SpotifyClient) refreshAccessToken(ctx context.Context) error {
 		return err
 	}
 	if resp.StatusCode >= 400 {
-		return fmt.Errorf("refresh token error: %s", strings.TrimSpace(string(data)))
+		message := strings.TrimSpace(string(data))
+		log.Printf("spotify access token refresh failed: status=%d body=%s", resp.StatusCode, message)
+		return fmt.Errorf("refresh token error: %s", message)
 	}
 
 	var parsed struct {
-		AccessToken string `json:"access_token"`
-		ExpiresIn   int    `json:"expires_in"`
-		TokenType   string `json:"token_type"`
+		AccessToken  string `json:"access_token"`
+		RefreshToken string `json:"refresh_token"`
+		ExpiresIn    int    `json:"expires_in"`
+		TokenType    string `json:"token_type"`
 	}
 	if err := json.Unmarshal(data, &parsed); err != nil {
 		return err
@@ -204,12 +306,45 @@ func (c *SpotifyClient) refreshAccessToken(ctx context.Context) error {
 	if parsed.AccessToken == "" {
 		return errors.New("missing access_token in refresh response")
 	}
+	if strings.TrimSpace(parsed.RefreshToken) != "" && strings.TrimSpace(parsed.RefreshToken) != strings.TrimSpace(c.refreshToken) {
+		c.refreshToken = strings.TrimSpace(parsed.RefreshToken)
+		_ = persistSpotifyRefreshToken(c.setupPath, c.refreshToken)
+		log.Printf("spotify refresh token rotated and persisted")
+	}
 	c.accessTok = parsed.AccessToken
 	if parsed.ExpiresIn <= 0 {
 		parsed.ExpiresIn = 3600
 	}
 	c.expiresAt = time.Now().Add(time.Duration(parsed.ExpiresIn) * time.Second)
+	_ = touchSpotifyTokenRefreshMetadata(c.setupPath)
+	log.Printf("spotify access token refreshed; expires_in=%ds", parsed.ExpiresIn)
 	return nil
+}
+
+func persistSpotifyRefreshToken(path, refreshToken string) error {
+	store := NewSetupStore(path)
+	now := time.Now().UTC()
+	return store.Update(func(current map[string]any) (map[string]any, error) {
+		next := cloneSettings(current)
+		next["refresh_token"] = strings.TrimSpace(refreshToken)
+		next["refresh_token_updated_at"] = now.Format(time.RFC3339)
+		next["refresh_token_expires_at"] = now.Add(spotifyRefreshTokenLifetime).Format(time.RFC3339)
+		next["token_last_refreshed_at"] = now.Format(time.RFC3339)
+		return next, nil
+	})
+}
+
+func touchSpotifyTokenRefreshMetadata(path string) error {
+	if strings.TrimSpace(path) == "" {
+		return nil
+	}
+	store := NewSetupStore(path)
+	now := time.Now().UTC()
+	return store.Update(func(current map[string]any) (map[string]any, error) {
+		next := cloneSettings(current)
+		next["token_last_refreshed_at"] = now.Format(time.RFC3339)
+		return next, nil
+	})
 }
 
 func getenv(key, fallback string) string {

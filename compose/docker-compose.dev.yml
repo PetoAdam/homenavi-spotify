@@ -6,9 +6,9 @@ services:
     environment:
       - PORT=8099
       - JWT_PUBLIC_KEY_PATH=/app/keys/jwt_public.pem
-      - INTEGRATION_SECRETS_PATH=/app/config/integration.secrets.json
+      - INTEGRATION_SETUP_PATH=/app/config/integration.setup.json
     volumes:
-      - ${HOMENAVI_ROOT:?set HOMENAVI_ROOT}/integrations/secrets/spotify.secrets.json:/app/config/integration.secrets.json
+      - ${HOMENAVI_ROOT:?set HOMENAVI_ROOT}/integrations/setup/spotify.setup.json:/app/config/integration.setup.json
       - ${HOMENAVI_ROOT:?set HOMENAVI_ROOT}/keys/jwt_public.pem:/app/keys/jwt_public.pem:ro
     networks:
       - homenavi-network

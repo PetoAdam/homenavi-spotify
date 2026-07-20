@@ -10,11 +10,11 @@ type Server struct {
 	Mux          *http.ServeMux
 	WebFS        fs.FS
 	ManifestJSON []byte
-	Spotify      *SpotifyClient
+	Spotify      *SpotifyManager
 	Playback     *PlaybackCache
-	SecretStore  *SecretStore
-	SecretSpecs  []SecretSpec
+	SetupStore   *SetupStore
 	AdminAuth    *AdminAuth
+	SpotifyAuth  *SpotifyAuthAPI
 }
 
 func mustSub(fsys fs.FS, dir string) fs.FS {
@@ -40,8 +40,11 @@ func (s *Server) Routes() http.Handler {
 	})
 
 	RegisterAPIRoutes(mux, s.Spotify, s.Playback)
-	if s.SecretStore != nil {
-		NewSecretsAPI(s.SecretStore, s.SecretSpecs, s.AdminAuth).Register(mux)
+	if s.SetupStore != nil {
+		NewSpotifySetupAPI(s.SetupStore, s.AdminAuth, s.Spotify).Register(mux)
+	}
+	if s.SpotifyAuth != nil {
+		s.SpotifyAuth.Register(mux)
 	}
 
 	assets := http.FileServer(http.FS(mustSub(s.WebFS, "assets")))

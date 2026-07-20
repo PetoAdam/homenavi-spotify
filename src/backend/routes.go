@@ -2,20 +2,24 @@ package backend
 
 import (
 	"encoding/json"
+	"log"
 	"net/http"
 	"net/url"
 	"strconv"
 	"strings"
 )
 
-func RegisterAPIRoutes(mux *http.ServeMux, spotify *SpotifyClient, playback *PlaybackCache) {
+const spotifyNotConfiguredMessage = "spotify integration is not configured"
+
+func RegisterAPIRoutes(mux *http.ServeMux, spotifyManager *SpotifyManager, playback *PlaybackCache) {
 	mux.HandleFunc("/api/state", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodGet {
 			w.WriteHeader(http.StatusMethodNotAllowed)
 			return
 		}
+		spotify := spotifyManager.Client()
 		if spotify == nil {
-			writeJSONError(w, http.StatusServiceUnavailable, "spotify integration is not configured")
+			writeJSONError(w, http.StatusServiceUnavailable, spotifyNotConfiguredMessage)
 			return
 		}
 		status, body, err := spotify.Do(r.Context(), http.MethodGet, "/me/player", nil, nil)
@@ -50,8 +54,9 @@ func RegisterAPIRoutes(mux *http.ServeMux, spotify *SpotifyClient, playback *Pla
 			w.WriteHeader(http.StatusMethodNotAllowed)
 			return
 		}
+		spotify := spotifyManager.Client()
 		if spotify == nil {
-			writeJSONError(w, http.StatusServiceUnavailable, "spotify integration is not configured")
+			writeJSONError(w, http.StatusServiceUnavailable, spotifyNotConfiguredMessage)
 			return
 		}
 		status, body, err := spotify.Do(r.Context(), http.MethodGet, "/me/player/queue", nil, nil)
@@ -63,8 +68,9 @@ func RegisterAPIRoutes(mux *http.ServeMux, spotify *SpotifyClient, playback *Pla
 			w.WriteHeader(http.StatusMethodNotAllowed)
 			return
 		}
+		spotify := spotifyManager.Client()
 		if spotify == nil {
-			writeJSONError(w, http.StatusServiceUnavailable, "spotify integration is not configured")
+			writeJSONError(w, http.StatusServiceUnavailable, spotifyNotConfiguredMessage)
 			return
 		}
 		status, body, err := spotify.Do(r.Context(), http.MethodGet, "/me/player/devices", nil, nil)
@@ -76,8 +82,9 @@ func RegisterAPIRoutes(mux *http.ServeMux, spotify *SpotifyClient, playback *Pla
 			w.WriteHeader(http.StatusMethodNotAllowed)
 			return
 		}
+		spotify := spotifyManager.Client()
 		if spotify == nil {
-			writeJSONError(w, http.StatusServiceUnavailable, "spotify integration is not configured")
+			writeJSONError(w, http.StatusServiceUnavailable, spotifyNotConfiguredMessage)
 			return
 		}
 		var payload struct {
@@ -117,8 +124,9 @@ func RegisterAPIRoutes(mux *http.ServeMux, spotify *SpotifyClient, playback *Pla
 			w.WriteHeader(http.StatusMethodNotAllowed)
 			return
 		}
+		spotify := spotifyManager.Client()
 		if spotify == nil {
-			writeJSONError(w, http.StatusServiceUnavailable, "spotify integration is not configured")
+			writeJSONError(w, http.StatusServiceUnavailable, spotifyNotConfiguredMessage)
 			return
 		}
 		status, body, err := spotify.Do(r.Context(), http.MethodPut, "/me/player/pause", nil, nil)
@@ -130,8 +138,9 @@ func RegisterAPIRoutes(mux *http.ServeMux, spotify *SpotifyClient, playback *Pla
 			w.WriteHeader(http.StatusMethodNotAllowed)
 			return
 		}
+		spotify := spotifyManager.Client()
 		if spotify == nil {
-			writeJSONError(w, http.StatusServiceUnavailable, "spotify integration is not configured")
+			writeJSONError(w, http.StatusServiceUnavailable, spotifyNotConfiguredMessage)
 			return
 		}
 		status, body, err := spotify.Do(r.Context(), http.MethodPost, "/me/player/next", nil, nil)
@@ -143,8 +152,9 @@ func RegisterAPIRoutes(mux *http.ServeMux, spotify *SpotifyClient, playback *Pla
 			w.WriteHeader(http.StatusMethodNotAllowed)
 			return
 		}
+		spotify := spotifyManager.Client()
 		if spotify == nil {
-			writeJSONError(w, http.StatusServiceUnavailable, "spotify integration is not configured")
+			writeJSONError(w, http.StatusServiceUnavailable, spotifyNotConfiguredMessage)
 			return
 		}
 		status, body, err := spotify.Do(r.Context(), http.MethodPost, "/me/player/previous", nil, nil)
@@ -156,8 +166,9 @@ func RegisterAPIRoutes(mux *http.ServeMux, spotify *SpotifyClient, playback *Pla
 			w.WriteHeader(http.StatusMethodNotAllowed)
 			return
 		}
+		spotify := spotifyManager.Client()
 		if spotify == nil {
-			writeJSONError(w, http.StatusServiceUnavailable, "spotify integration is not configured")
+			writeJSONError(w, http.StatusServiceUnavailable, spotifyNotConfiguredMessage)
 			return
 		}
 		var payload struct {
@@ -178,8 +189,9 @@ func RegisterAPIRoutes(mux *http.ServeMux, spotify *SpotifyClient, playback *Pla
 			w.WriteHeader(http.StatusMethodNotAllowed)
 			return
 		}
+		spotify := spotifyManager.Client()
 		if spotify == nil {
-			writeJSONError(w, http.StatusServiceUnavailable, "spotify integration is not configured")
+			writeJSONError(w, http.StatusServiceUnavailable, spotifyNotConfiguredMessage)
 			return
 		}
 		var payload struct {
@@ -203,8 +215,9 @@ func RegisterAPIRoutes(mux *http.ServeMux, spotify *SpotifyClient, playback *Pla
 			w.WriteHeader(http.StatusMethodNotAllowed)
 			return
 		}
+		spotify := spotifyManager.Client()
 		if spotify == nil {
-			writeJSONError(w, http.StatusServiceUnavailable, "spotify integration is not configured")
+			writeJSONError(w, http.StatusServiceUnavailable, spotifyNotConfiguredMessage)
 			return
 		}
 		var payload struct {
@@ -225,8 +238,9 @@ func RegisterAPIRoutes(mux *http.ServeMux, spotify *SpotifyClient, playback *Pla
 			w.WriteHeader(http.StatusMethodNotAllowed)
 			return
 		}
+		spotify := spotifyManager.Client()
 		if spotify == nil {
-			writeJSONError(w, http.StatusServiceUnavailable, "spotify integration is not configured")
+			writeJSONError(w, http.StatusServiceUnavailable, spotifyNotConfiguredMessage)
 			return
 		}
 		var payload struct {
@@ -247,8 +261,9 @@ func RegisterAPIRoutes(mux *http.ServeMux, spotify *SpotifyClient, playback *Pla
 			w.WriteHeader(http.StatusMethodNotAllowed)
 			return
 		}
+		spotify := spotifyManager.Client()
 		if spotify == nil {
-			writeJSONError(w, http.StatusServiceUnavailable, "spotify integration is not configured")
+			writeJSONError(w, http.StatusServiceUnavailable, spotifyNotConfiguredMessage)
 			return
 		}
 		var payload struct {
@@ -277,8 +292,9 @@ func RegisterAPIRoutes(mux *http.ServeMux, spotify *SpotifyClient, playback *Pla
 			w.WriteHeader(http.StatusMethodNotAllowed)
 			return
 		}
+		spotify := spotifyManager.Client()
 		if spotify == nil {
-			writeJSONError(w, http.StatusServiceUnavailable, "spotify integration is not configured")
+			writeJSONError(w, http.StatusServiceUnavailable, spotifyNotConfiguredMessage)
 			return
 		}
 		var payload struct {
@@ -306,8 +322,9 @@ func RegisterAPIRoutes(mux *http.ServeMux, spotify *SpotifyClient, playback *Pla
 			w.WriteHeader(http.StatusMethodNotAllowed)
 			return
 		}
+		spotify := spotifyManager.Client()
 		if spotify == nil {
-			writeJSONError(w, http.StatusServiceUnavailable, "spotify integration is not configured")
+			writeJSONError(w, http.StatusServiceUnavailable, spotifyNotConfiguredMessage)
 			return
 		}
 		queryStr := r.URL.Query().Get("q")
@@ -360,6 +377,15 @@ func writeRawJSON(w http.ResponseWriter, status int, body []byte) {
 
 func writeSpotifyResponse(w http.ResponseWriter, status int, body []byte, err error) {
 	if err != nil {
+		log.Printf("spotify api request failed: status=%d err=%v", status, err)
+		if isSpotifyReloginError(err) {
+			writeJSONError(w, http.StatusUnauthorized, "spotify connection expired. please re-login")
+			return
+		}
+		if isSpotifyUnavailableError(err) {
+			writeJSONError(w, http.StatusServiceUnavailable, spotifyNotConfiguredMessage)
+			return
+		}
 		if status >= http.StatusBadRequest && len(body) > 0 {
 			writeRawJSON(w, status, body)
 			return
@@ -424,6 +450,26 @@ func isNoActiveDevice(body []byte, err error) bool {
 	}
 	msg := strings.ToLower(err.Error())
 	return strings.Contains(msg, "no active device")
+}
+
+func isSpotifyUnavailableError(err error) bool {
+	if err == nil {
+		return false
+	}
+	message := strings.ToLower(strings.TrimSpace(err.Error()))
+	return strings.Contains(message, "missing spotify_client_id") ||
+		strings.Contains(message, "missing spotify_client_secret") ||
+		strings.Contains(message, "missing spotify_refresh_token") ||
+		strings.Contains(message, "missing access_token in refresh response") ||
+		strings.Contains(message, "spotify client is nil")
+}
+
+func isSpotifyReloginError(err error) bool {
+	if err == nil {
+		return false
+	}
+	message := strings.ToLower(strings.TrimSpace(err.Error()))
+	return strings.Contains(message, "refresh token error:") || strings.Contains(message, "invalid_grant")
 }
 
 func writeJSON(w http.ResponseWriter, status int, payload any) {

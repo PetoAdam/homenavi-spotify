@@ -2,20 +2,21 @@
   "schema_version": 1,
   "id": "spotify",
   "name": "Spotify",
-  "version": "0.6.8",
+  "version": "0.7.0",
   "publisher": "Homenavi",
   "homepage": "https://spotify.com",
   "verified": false,
-  "secrets": [
-    { "key": "SPOTIFY_CLIENT_ID", "description": "Spotify application client id." },
-    { "key": "SPOTIFY_CLIENT_SECRET", "description": "Spotify application client secret." },
-    { "key": "SPOTIFY_REFRESH_TOKEN", "description": "OAuth refresh token with playback scopes." }
-  ],
   "ui": {
     "sidebar": {
       "enabled": true,
       "path": "/ui/",
       "label": "Spotify",
+      "icon": "fa:spotify"
+    },
+    "setup": {
+      "enabled": true,
+      "path": "/ui/setup/",
+      "label": "Setup",
       "icon": "fa:spotify"
     }
   },

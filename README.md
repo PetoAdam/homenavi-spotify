@@ -22,31 +22,61 @@ A full Spotify player integration with a dedicated tab and a dashboard widget. S
 - The shared `PetoAdam/homenavi/.github/actions/integration-release@main` action also enforces central verification (`integration-verify` + `go vet` + `gosec`) during release.
 - Release emits SBOM + provenance and signs published image digests keylessly with Cosign.
 
-## Environment variables
+## Configuration model
 
-Copy the example env file and fill in your secrets:
+This integration now follows the standard Homenavi setup flow:
+
+- Admins open the Spotify `Setup` page from the integrations sidebar.
+- They save the Spotify app `client_id` and `client_secret`.
+- They click `Connect Spotify` and finish the OAuth login in the browser.
+- The backend stores the resulting refresh token in `integration.setup.json` and rotates it when Spotify returns a new one.
+
+Environment variables are still supported for local bootstrap and emergency overrides.
+
+Copy the example env file if you want to run it standalone:
 
 ```bash
 cp .env.example .env
 ```
 
-Set the following values in the `.env` file:
+Supported variables:
 
 - `SPOTIFY_CLIENT_ID`
 - `SPOTIFY_CLIENT_SECRET`
-- `SPOTIFY_REFRESH_TOKEN`
+- `SPOTIFY_REFRESH_TOKEN` optional legacy/manual override
 
-If you prefer central management, use the Admin → Integrations page to set these secrets (declared in the manifest). Values are write-only and cannot be read back. The integration exposes a write-only admin endpoint at `GET/PUT /api/admin/secrets` (admin-only; values are never returned). For admin access, mount the Homenavi JWT public key and set `JWT_PUBLIC_KEY_PATH` in the container.
+For central management, mount the Homenavi JWT public key and set `JWT_PUBLIC_KEY_PATH`. The integration exposes:
 
-The integration reads secrets from `INTEGRATION_SECRETS_PATH` (or `INTEGRATIONS_SECRETS_PATH` for compatibility) if environment variables are not set. By default it uses `config/integration.secrets.json` in the repo/container.
+- `GET/PUT /api/admin/setup`
+- `GET /api/admin/auth/status`
+- `POST /api/admin/auth/login`
+- `GET /api/admin/auth/callback`
+- `POST /api/admin/auth/disconnect`
+
+The integration reads setup from `INTEGRATION_SETUP_PATH` (or `INTEGRATIONS_SETUP_PATH`) and stores it in `config/integration.setup.json` by default. Legacy `INTEGRATION_SECRETS_PATH` input is still accepted as a fallback for old deployments.
 
 ## How to get the Spotify credentials
 
 1) Create a Spotify developer app at https://developer.spotify.com/dashboard
 2) Copy the **Client ID** and **Client Secret** from the app settings.
-3) Add a Redirect URI (e.g. `http://localhost:8888/callback`) in the app settings.
-4) Run an OAuth authorization flow (with `user-read-playback-state`, `user-modify-playback-state`, and `user-read-currently-playing` scopes) to obtain a **refresh token**.
-5) Set the environment variables above.
+3) Add the integration callback URL shown on the Setup page as a Redirect URI in the Spotify app settings.
+4) Save setup in Homenavi and click `Connect Spotify`.
+5) Complete the Spotify login once in the browser.
+
+## Refresh token lifecycle
+
+Spotify refresh tokens can expire after roughly 180 days depending on provider policy.
+
+- This integration now stores refresh tokens in setup storage, not in static secrets.
+- When Spotify returns a rotated refresh token during refresh, the integration persists the new token automatically.
+- The setup status exposes `refresh_token_expires_at` so Homenavi can warn admins before expiry.
+
+If Spotify enforces a hard 180-day re-authentication window, there is no legitimate way to bypass it completely. The best operational model is:
+
+- use a dedicated household Spotify account for the integration
+- rotate and persist any new refresh token automatically
+- surface expiry in admin status and alert before the deadline
+- reconnect once when Spotify requires it
 
 ## Local dev (frontend)
 
@@ -107,8 +137,8 @@ export INTEGRATIONS_ROOT=/path/to/homenavi
 docker run --rm -d \
   --name spotify \
   --network homenavi-network \
-  -v ${INTEGRATIONS_ROOT}/integrations/secrets/spotify.secrets.json:/app/config/integration.secrets.json \
-  -e INTEGRATION_SECRETS_PATH=/app/config/integration.secrets.json \
+  -v ${INTEGRATIONS_ROOT}/integrations/setup/spotify.setup.json:/app/config/integration.setup.json \
+  -e INTEGRATION_SETUP_PATH=/app/config/integration.setup.json \
   -v ${INTEGRATIONS_ROOT}/keys/jwt_public.pem:/app/keys/jwt_public.pem:ro \
   -e JWT_PUBLIC_KEY_PATH=/app/keys/jwt_public.pem \
   homenavi-spotify:local
@@ -158,14 +188,14 @@ Run the container on the Homenavi network (using the repo file path):
 docker run --rm \
   --name spotify \
   --network homenavi_homenavi-network \
-  -v $(pwd)/integrations/spotify/config/integration.secrets.json:/app/config/integration.secrets.json \
-  -e INTEGRATION_SECRETS_PATH=/app/config/integration.secrets.json \
+  -v $(pwd)/integrations/spotify/config/integration.setup.json:/app/config/integration.setup.json \
+  -e INTEGRATION_SETUP_PATH=/app/config/integration.setup.json \
   -v $(pwd)/keys/jwt_public.pem:/app/keys/jwt_public.pem:ro \
   -e JWT_PUBLIC_KEY_PATH=/app/keys/jwt_public.pem \
   homenavi-spotify:local
 ```
 
-If you don’t need the admin secrets endpoint, omit the JWT mount/env lines.
+If you don’t need the admin setup/auth endpoints, omit the JWT mount/env lines.
 
 ## Integration proxy installation (recommended)
 
@@ -181,8 +211,8 @@ docker build -t ghcr.io/petoadam/homenavi-spotify:latest .
 docker run --rm \
   --name spotify \
   --network homenavi_homenavi-network \
-  -v $(pwd)/config/integration.secrets.json:/app/config/integration.secrets.json \
-  -e INTEGRATION_SECRETS_PATH=/app/config/integration.secrets.json \
+  -v $(pwd)/config/integration.setup.json:/app/config/integration.setup.json \
+  -e INTEGRATION_SETUP_PATH=/app/config/integration.setup.json \
   -v $(pwd)/keys/jwt_public.pem:/app/keys/jwt_public.pem:ro \
   -e JWT_PUBLIC_KEY_PATH=/app/keys/jwt_public.pem \
   ghcr.io/petoadam/homenavi-spotify:latest
@@ -208,17 +238,12 @@ image:
   tag: latest
 
 env:
-  INTEGRATION_SECRETS_PATH: /app/config/integration.secrets.json
+  INTEGRATION_SETUP_PATH: /app/config/integration.setup.json
   JWT_PUBLIC_KEY_PATH: /app/keys/jwt_public.pem
-
-secrets:
-  spotifyClientId: "<set-via-secret>"
-  spotifyClientSecret: "<set-via-secret>"
-  spotifyRefreshToken: "<set-via-secret>"
 
 integrations:
   - id: spotify
     upstream: http://spotify:8099
 ```
 
-The chart will create a Deployment + Service and add an `installed.yaml` snippet for integration‑proxy. JWT public key mounting will be optional for deployments that do not use the admin secrets endpoint.
+The chart will create a Deployment + Service and add an `installed.yaml` snippet for integration‑proxy. JWT public key mounting will be optional for deployments that do not use the admin setup/auth endpoints.

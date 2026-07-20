@@ -16,6 +16,7 @@ import {
 } from '@fortawesome/free-solid-svg-icons';
 import { faSpotify } from '@fortawesome/free-brands-svg-icons';
 import {
+  buildIntegrationUrl,
   getState,
   getQueue,
   getDevices,
@@ -40,6 +41,76 @@ function formatMs(ms = 0) {
 }
 
 const repeatCycle = ['off', 'context', 'track'];
+
+function formatDurationLabel(ms) {
+  const totalSeconds = Math.max(0, Math.floor(ms / 1000));
+  const days = Math.floor(totalSeconds / 86400);
+  const hours = Math.floor((totalSeconds % 86400) / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  if (days > 0) {
+    return hours > 0 ? `${days}d ${hours}h` : `${days}d`;
+  }
+  if (hours > 0) {
+    return minutes > 0 ? `${hours}h ${minutes}m` : `${hours}h`;
+  }
+  return `${minutes}m`;
+}
+
+function isSpotifyConfigError(error) {
+  const message = String(error?.message || '').toLowerCase();
+  return (
+    error?.status === 503 ||
+    message.includes('spotify integration is not configured') ||
+    message.includes('missing spotify_client_id') ||
+    message.includes('missing spotify_client_secret') ||
+    message.includes('missing spotify_refresh_token')
+  );
+}
+
+function isSpotifyReloginError(error) {
+  const message = String(error?.message || '').toLowerCase();
+  return (
+    error?.status === 401 ||
+    message.includes('spotify connection expired') ||
+    message.includes('refresh token error') ||
+    message.includes('invalid_grant')
+  );
+}
+
+function AccessGate({ variant, kind, title, body }) {
+  const canOpenSetup = variant === 'tab';
+  const setupHref = buildIntegrationUrl('/ui/setup/');
+  const actionText = kind === 'relogin' ? 'Open setup' : 'Go to setup';
+  const subtitle = canOpenSetup
+    ? 'Use the Spotify setup menu to reconnect the household account.'
+    : 'Ask an admin to reconnect Spotify from the setup menu.';
+
+  return (
+    <div className={['spotify-shell', variant === 'widget' ? 'spotify-compact' : '', 'spotify-access-shell'].join(' ')}>
+      <div className="spotify-card spotify-access-card">
+        <div className="spotify-card-content spotify-access-content">
+          <div className="spotify-header">
+            <div className="spotify-widget-header">
+              <FontAwesomeIcon icon={faSpotify} className="spotify-widget-icon" />
+              <span className="spotify-widget-title">Spotify</span>
+            </div>
+            <span className="spotify-pill">{kind === 'relogin' ? 'Re-login' : 'Setup'}</span>
+          </div>
+          <div className="spotify-access-title">{title}</div>
+          <div className="spotify-subtitle">{body}</div>
+          <div className="spotify-subtitle">{subtitle}</div>
+          {canOpenSetup ? (
+            <div className="spotify-access-actions">
+              <button className="spotify-btn spotify-access-btn" type="button" onClick={() => window.location.assign(setupHref)}>
+                {actionText}
+              </button>
+            </div>
+          ) : null}
+        </div>
+      </div>
+    </div>
+  );
+}
 
 export default function Player({ variant = 'tab', showSearch = false, showQueue = true }) {
   const [state, setState] = React.useState(null);
@@ -98,6 +169,25 @@ export default function Player({ variant = 'tab', showSearch = false, showQueue 
     }
     return false;
   }, [error]);
+
+  const accessIssue = React.useMemo(() => {
+    if (!error) return null;
+    if (isSpotifyReloginError(error)) {
+      return {
+        kind: 'relogin',
+        title: 'Spotify needs a re-login',
+        body: 'The stored Spotify authorization expired or was revoked.',
+      };
+    }
+    if (configError || isSpotifyConfigError(error)) {
+      return {
+        kind: 'setup',
+        title: 'Spotify is not configured',
+        body: 'Save the Spotify app credentials in Setup, then connect the account again.',
+      };
+    }
+    return null;
+  }, [configError, error]);
 
   const refresh = React.useCallback(async () => {
     try {
@@ -323,24 +413,8 @@ export default function Player({ variant = 'tab', showSearch = false, showQueue 
     }
   };
 
-  if (configError) {
-    return (
-      <div className={['spotify-shell', variant === 'widget' ? 'spotify-compact' : '', coverIsBright ? 'cover-bright' : 'cover-dark'].join(' ')}>
-        <div className="spotify-card">
-          <div className="spotify-card-content">
-            <div className="spotify-header">
-              <div className="spotify-widget-header">
-                <FontAwesomeIcon icon={faSpotify} className="spotify-widget-icon" />
-                <span className="spotify-widget-title">Spotify</span>
-              </div>
-              <span className="spotify-pill">Config</span>
-            </div>
-            <div className="spotify-subtitle">Spotify is not configured.</div>
-            <div className="spotify-subtitle">Set SPOTIFY_CLIENT_ID, SPOTIFY_CLIENT_SECRET, and SPOTIFY_REFRESH_TOKEN.</div>
-          </div>
-        </div>
-      </div>
-    );
+  if (accessIssue) {
+    return <AccessGate variant={variant} kind={accessIssue.kind} title={accessIssue.title} body={accessIssue.body} />;
   }
 
   return (
