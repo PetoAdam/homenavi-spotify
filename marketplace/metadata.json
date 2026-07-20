@@ -1,7 +1,7 @@
 {
   "id": "spotify",
   "name": "Spotify",
-  "version": "0.7.0",
+  "version": "1.0.0",
   "description": "Control playback, devices, and playlists from HomeNavi.",
   "publisher": "HomeNavi",
   "homepage": "https://www.spotify.com",
