@@ -96,7 +96,33 @@ function SetupApp() {
       if (!response?.auth_url) {
         throw new Error('Missing Spotify authorization URL');
       }
-      window.location.assign(response.auth_url);
+      
+      // Open Spotify login in a new tab to avoid embedding security restrictions
+      window.open(response.auth_url, '_blank', 'noopener,noreferrer');
+      
+      // Poll for successful authentication completion
+      const pollInterval = window.setInterval(async () => {
+        try {
+          const authResp = await fetchAuthStatus();
+          if (authResp?.status?.connected) {
+            window.clearInterval(pollInterval);
+            setConnecting(false);
+            setStatus('Spotify account connected!');
+            setAuthStatus(authResp.status);
+          }
+        } catch {
+          // Continue polling
+        }
+      }, 1000);
+      
+      // Stop polling after 5 minutes
+      window.setTimeout(() => {
+        window.clearInterval(pollInterval);
+        if (authStatus.connected === false) {
+          setConnecting(false);
+          setStatus('Spotify login did not complete. Please check the opened tab.');
+        }
+      }, 5 * 60 * 1000);
     } catch (err) {
       setStatus(err?.message || 'Failed to start Spotify login.');
       setConnecting(false);
