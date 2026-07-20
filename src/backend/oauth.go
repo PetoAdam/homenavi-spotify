@@ -120,6 +120,7 @@ func NewSpotifyAuthAPI(store *SetupStore, admin *AdminAuth, manager *SpotifyMana
 func (s *SpotifyAuthAPI) Register(mux *http.ServeMux) {
 	mux.HandleFunc("/api/admin/auth/status", s.handleStatus)
 	mux.HandleFunc("/api/admin/auth/login", s.handleLogin)
+	mux.HandleFunc("/api/admin/auth/begin", s.handleBegin)
 	mux.HandleFunc("/api/admin/auth/callback", s.handleCallback)
 	mux.HandleFunc("/api/admin/auth/disconnect", s.handleDisconnect)
 }
@@ -138,6 +139,54 @@ func (s *SpotifyAuthAPI) handleStatus(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"status": spotifyAuthStatus(settings)})
+}
+
+// handleBegin is a GET endpoint that immediately 302-redirects to Spotify's OAuth page.
+// It is designed to be used as a plain browser navigation target (href) rather than via
+// a JS fetch, so that the redirect happens within the user-gesture context and the
+// iframe sandbox allow-top-navigation-by-user-activation rule is satisfied.
+func (s *SpotifyAuthAPI) handleBegin(w http.ResponseWriter, r *http.Request) {
+	if s == nil || s.Admin == nil || !s.Admin.RequireAdmin(w, r) {
+		return
+	}
+	if r.Method != http.MethodGet {
+		w.WriteHeader(http.StatusMethodNotAllowed)
+		return
+	}
+	redirectURI := strings.TrimSpace(r.URL.Query().Get("redirect_uri"))
+	returnTo := strings.TrimSpace(r.URL.Query().Get("return_to"))
+	if redirectURI == "" || returnTo == "" {
+		writeJSONError(w, http.StatusBadRequest, "redirect_uri and return_to are required")
+		return
+	}
+	settings, err := s.Store.Get()
+	if err != nil {
+		writeJSONError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	clientID := strings.TrimSpace(settingString(settings, "client_id"))
+	clientSecret := strings.TrimSpace(settingString(settings, "client_secret"))
+	if clientID == "" || clientSecret == "" {
+		writeJSONError(w, http.StatusBadRequest, "client_id and client_secret must be configured first")
+		return
+	}
+	log.Printf("spotify login begin: return_to=%s redirect_uri=%s", returnTo, redirectURI)
+	state, err := s.States.Create(SpotifyOAuthState{
+		RedirectURI: redirectURI,
+		ReturnTo:    returnTo,
+		CreatedAt:   time.Now().UTC(),
+	})
+	if err != nil {
+		writeJSONError(w, http.StatusInternalServerError, "failed to create auth state")
+		return
+	}
+	query := url.Values{}
+	query.Set("client_id", clientID)
+	query.Set("response_type", "code")
+	query.Set("redirect_uri", redirectURI)
+	query.Set("scope", strings.Join(spotifyOAuthScopes, " "))
+	query.Set("state", state)
+	http.Redirect(w, r, "https://accounts.spotify.com/authorize?"+query.Encode(), http.StatusFound)
 }
 
 func (s *SpotifyAuthAPI) handleLogin(w http.ResponseWriter, r *http.Request) {

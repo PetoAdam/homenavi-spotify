@@ -7,7 +7,6 @@ import {
   fetchAuthStatus,
   fetchSetup,
   saveSetup,
-  startSpotifyLogin,
   disconnectSpotify,
 } from '../shared/api';
 
@@ -41,7 +40,6 @@ function SetupApp() {
   const [authStatus, setAuthStatus] = React.useState({ connected: false });
   const [loading, setLoading] = React.useState(true);
   const [saving, setSaving] = React.useState(false);
-  const [connecting, setConnecting] = React.useState(false);
   const [status, setStatus] = React.useState('');
   const [nowTick, setNowTick] = React.useState(Date.now());
 
@@ -85,53 +83,15 @@ function SetupApp() {
 
   const expiryLabel = formatExpiryLabel(authStatus?.refresh_token_expires_at, nowTick);
 
-  const connect = async () => {
-    setConnecting(true);
-    setStatus('');
-    try {
-      const origin = window.location.origin;
-      const redirectUri = `${origin}${buildIntegrationUrl('/api/admin/auth/callback')}`;
-      const returnTo = `${origin}${buildIntegrationUrl('/ui/setup/')}`;
-      const response = await startSpotifyLogin({ redirect_uri: redirectUri, return_to: returnTo });
-      if (!response?.auth_url) {
-        throw new Error('Missing Spotify authorization URL');
-      }
-      
-      // Start polling for successful authentication before navigating
-      const pollInterval = window.setInterval(async () => {
-        try {
-          const authResp = await fetchAuthStatus();
-          if (authResp?.status?.connected) {
-            window.clearInterval(pollInterval);
-            setConnecting(false);
-            setStatus('Spotify account connected!');
-            setAuthStatus(authResp.status);
-          }
-        } catch {
-          // Continue polling
-        }
-      }, 1000);
-      
-      // Set up timeout
-      const timeout = window.setTimeout(() => {
-        window.clearInterval(pollInterval);
-        if (!authStatus.connected) {
-          setConnecting(false);
-          setStatus('Spotify login did not complete.');
-        }
-      }, 5 * 60 * 1000);
-      
-      // Store interval/timeout IDs in window for cleanup
-      window._spotifyPollInterval = pollInterval;
-      window._spotifyPollTimeout = timeout;
-      
-      // Navigate top-level window to break out of the iframe context
-      window.top.location.href = response.auth_url;
-    } catch (err) {
-      setStatus(err?.message || 'Failed to start Spotify login.');
-      setConnecting(false);
-    }
-  };
+  // Build the direct-navigation URL for the OAuth begin endpoint.
+  // Using a plain <a target="_top"> avoids the async user-gesture gap that breaks
+  // window.top.location.href inside an iframe sandbox (allow-top-navigation-by-user-activation).
+  const connectHref = React.useMemo(() => {
+    const origin = window.location.origin;
+    const redirectUri = encodeURIComponent(`${origin}${buildIntegrationUrl('/api/admin/auth/callback')}`);
+    const returnTo = encodeURIComponent(`${origin}${buildIntegrationUrl('/ui/setup/')}`);
+    return `${buildIntegrationUrl('/api/admin/auth/begin')}?redirect_uri=${redirectUri}&return_to=${returnTo}`;
+  }, []);
 
   return (
     <div className="hn-shell">
@@ -156,7 +116,7 @@ function SetupApp() {
                 value={settings.client_id}
                 onChange={(e) => setSettings((prev) => ({ ...prev, client_id: e.target.value }))}
                 placeholder="Spotify developer app client id"
-                disabled={loading || saving || connecting}
+                disabled={loading || saving}
               />
             </label>
             <label style={{ display: 'grid', gap: 6 }}>
@@ -167,7 +127,7 @@ function SetupApp() {
                 value={settings.client_secret}
                 onChange={(e) => setSettings((prev) => ({ ...prev, client_secret: e.target.value }))}
                 placeholder="Spotify developer app client secret"
-                disabled={loading || saving || connecting}
+                disabled={loading || saving}
               />
             </label>
           </div>
@@ -183,7 +143,7 @@ function SetupApp() {
           <div style={{ display: 'flex', gap: 8, marginTop: 12, flexWrap: 'wrap' }}>
             <button
               className="hn-btn"
-              disabled={loading || saving || connecting}
+              disabled={loading || saving}
               onClick={async () => {
                 setSaving(true);
                 setStatus('');
@@ -203,13 +163,18 @@ function SetupApp() {
             >
               {saving ? 'Saving…' : 'Save setup'}
             </button>
-            <button className="hn-btn" disabled={loading || saving || connecting} onClick={connect}>
-              {connecting ? 'Connecting…' : authStatus?.connected ? 'Reconnect Spotify' : 'Connect Spotify'}
-            </button>
+            <a
+              className="hn-btn"
+              href={connectHref}
+              target="_top"
+              style={{ pointerEvents: (loading || saving) ? 'none' : 'auto', opacity: (loading || saving) ? 0.5 : 1 }}
+            >
+              {authStatus?.connected ? 'Reconnect Spotify' : 'Connect Spotify'}
+            </a>
             {authStatus?.connected ? (
               <button
                 className="hn-btn"
-                disabled={loading || saving || connecting}
+                disabled={loading || saving}
                 onClick={async () => {
                   try {
                     await disconnectSpotify();
@@ -219,10 +184,10 @@ function SetupApp() {
                     setStatus(err?.message || 'Failed to disconnect Spotify.');
                   }
                 }}
-              >
+                >
                 Disconnect
               </button>
-            ) : null}
+                ) : null}
           </div>
           {status ? <div className="hn-subtitle" style={{ marginTop: 10 }}>{status}</div> : null}
         </div>
