@@ -125,8 +125,8 @@ function SetupApp() {
       window._spotifyPollInterval = pollInterval;
       window._spotifyPollTimeout = timeout;
       
-      // Navigate to Spotify directly - breaks out of iframe context
-      window.location.href = response.auth_url;
+      // Navigate top-level window to break out of the iframe context
+      window.top.location.href = response.auth_url;
     } catch (err) {
       setStatus(err?.message || 'Failed to start Spotify login.');
       setConnecting(false);
