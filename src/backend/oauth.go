@@ -244,7 +244,7 @@ func (s *SpotifyAuthAPI) handleLogin(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *SpotifyAuthAPI) handleCallback(w http.ResponseWriter, r *http.Request) {
-	if s == nil || s.Admin == nil || !s.Admin.RequireAdmin(w, r) {
+	if s == nil {
 		return
 	}
 	if r.Method != http.MethodGet {
