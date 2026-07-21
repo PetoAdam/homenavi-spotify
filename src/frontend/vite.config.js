@@ -53,9 +53,10 @@ export default defineConfig(async () => {
       rollupOptions: {
         input: inputHtml,
         output: {
-          entryFileNames: 'assets/[name].js',
-          chunkFileNames: 'assets/[name].js',
-          assetFileNames: 'assets/[name][extname]'
+          // Include content hashes so browsers do not reuse stale widget/tab bundles.
+          entryFileNames: 'assets/[name]-[hash].js',
+          chunkFileNames: 'assets/[name]-[hash].js',
+          assetFileNames: 'assets/[name]-[hash][extname]'
         }
       }
     },
