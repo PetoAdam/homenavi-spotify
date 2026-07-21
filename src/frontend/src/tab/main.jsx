@@ -40,7 +40,7 @@ function SetupApp() {
   const [authStatus, setAuthStatus] = React.useState({ connected: false });
   const [loading, setLoading] = React.useState(true);
   const [saving, setSaving] = React.useState(false);
-  const [status, setStatus] = React.useState('');
+  const [setupError, setSetupError] = React.useState('');
   const [nowTick, setNowTick] = React.useState(Date.now());
 
   const load = React.useCallback(async () => {
@@ -57,20 +57,11 @@ function SetupApp() {
     load()
       .catch((err) => {
         if (!alive) return;
-        setStatus(err?.message || 'Could not load setup.');
+        setSetupError(err?.message || 'Could not load setup.');
       })
       .finally(() => {
         if (alive) setLoading(false);
       });
-
-    const params = new URLSearchParams(window.location.search);
-    const spotify = params.get('spotify');
-    if (spotify === 'connected') {
-      setStatus('Spotify account connected.');
-    }
-    if (spotify === 'auth_error') {
-      setStatus('Spotify login failed. Try connecting again.');
-    }
     return () => {
       alive = false;
     };
@@ -146,16 +137,15 @@ function SetupApp() {
               disabled={loading || saving}
               onClick={async () => {
                 setSaving(true);
-                setStatus('');
+                setSetupError('');
                 try {
                   await saveSetup({
                     client_id: String(settings.client_id || '').trim(),
                     client_secret: String(settings.client_secret || '').trim(),
                   });
                   await load();
-                  setStatus('Setup saved.');
                 } catch (err) {
-                  setStatus(err?.message || 'Failed to save setup.');
+                  setSetupError(err?.message || 'Failed to save setup.');
                 } finally {
                   setSaving(false);
                 }
@@ -179,9 +169,9 @@ function SetupApp() {
                   try {
                     await disconnectSpotify();
                     await load();
-                    setStatus('Spotify connection removed.');
+                    setSetupError('');
                   } catch (err) {
-                    setStatus(err?.message || 'Failed to disconnect Spotify.');
+                    setSetupError(err?.message || 'Failed to disconnect Spotify.');
                   }
                 }}
                 >
@@ -189,7 +179,7 @@ function SetupApp() {
               </button>
                 ) : null}
           </div>
-          {status ? <div className="hn-subtitle" style={{ marginTop: 10 }}>{status}</div> : null}
+          {setupError ? <div className="hn-subtitle" style={{ marginTop: 10 }}>{setupError}</div> : null}
         </div>
       </div>
     </div>

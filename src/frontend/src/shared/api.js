@@ -19,22 +19,41 @@ export function buildIntegrationUrl(path) {
 	return buildUrl(path);
 }
 
+function normalizeErrorMessage(value, fallback) {
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    return trimmed || fallback;
+  }
+  if (value == null) return fallback;
+  if (typeof value === 'number' || typeof value === 'boolean') {
+    return String(value);
+  }
+  if (typeof value === 'object') {
+    const nested = value.error || value.message || value.detail;
+    if (nested && nested !== value) {
+      return normalizeErrorMessage(nested, fallback);
+    }
+  }
+  return fallback;
+}
+
 async function jsonRequest(path, options = {}) {
   const resp = await fetch(buildUrl(path), options);
   if (resp.status === 204) return null;
   const text = await resp.text();
   const contentType = resp.headers.get('content-type') || '';
   if (!resp.ok) {
-    let message = text || `Request failed (${resp.status})`;
+    const fallback = `Request failed (${resp.status})`;
+    let message = normalizeErrorMessage(text, fallback);
     if (contentType.includes('application/json') && text) {
       try {
         const parsed = JSON.parse(text);
-        message = parsed?.error || parsed?.message || message;
+        message = normalizeErrorMessage(parsed, message);
       } catch {
         // Fall back to raw text below.
       }
     } else if (/^\s*</.test(text)) {
-      message = `Request failed (${resp.status})`;
+      message = fallback;
     }
     const error = new Error(message);
     error.status = resp.status;
@@ -152,14 +171,6 @@ export function saveSetup(settings) {
 
 export function fetchAuthStatus() {
   return jsonRequest('/api/admin/auth/status', { method: 'GET' });
-}
-
-export function startSpotifyLogin(payload) {
-  return jsonRequest('/api/admin/auth/login', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload),
-  });
 }
 
 export function disconnectSpotify() {

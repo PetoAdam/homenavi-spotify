@@ -77,6 +77,10 @@ function isSpotifyReloginError(error) {
   );
 }
 
+function isSpotifyAccessIssue(error) {
+  return isSpotifyReloginError(error) || isSpotifyConfigError(error);
+}
+
 function AccessGate({ variant, kind, title, body }) {
   const canOpenSetup = variant === 'tab';
   const setupHref = buildIntegrationUrl('/ui/setup/');
@@ -116,7 +120,7 @@ export default function Player({ variant = 'tab', showSearch = false, showQueue 
   const [state, setState] = React.useState(null);
   const [queue, setQueue] = React.useState(null);
   const [devices, setDevices] = React.useState([]);
-  const [error, setError] = React.useState('');
+  const [accessError, setAccessError] = React.useState(null);
   const [loading, setLoading] = React.useState(true);
   const [scrub, setScrub] = React.useState(null);
   const [volume, setVolumeState] = React.useState(null);
@@ -152,34 +156,16 @@ export default function Player({ variant = 'tab', showSearch = false, showQueue 
   const isPlaying = Boolean(state?.is_playing);
   const shuffleOn = Boolean(state?.shuffle_state);
   const repeatState = state?.repeat_state || 'off';
-  const configError = React.useMemo(() => {
-    if (!error) return false;
-    const trimmed = String(error).trim();
-    if (!trimmed) return false;
-    if (trimmed.includes('spotify integration is not configured')) return true;
-    if (trimmed.includes('missing SPOTIFY_CLIENT_ID')) return true;
-    if (trimmed.startsWith('{')) {
-      try {
-        const parsed = JSON.parse(trimmed);
-        const message = String(parsed?.error || parsed?.message || '').toLowerCase();
-        return message.includes('spotify integration is not configured') || message.includes('missing spotify_client_id');
-      } catch {
-        return false;
-      }
-    }
-    return false;
-  }, [error]);
-
   const accessIssue = React.useMemo(() => {
-    if (!error) return null;
-    if (isSpotifyReloginError(error)) {
+    if (!accessError) return null;
+    if (isSpotifyReloginError(accessError)) {
       return {
         kind: 'relogin',
         title: 'Spotify needs a re-login',
         body: 'The stored Spotify authorization expired or was revoked.',
       };
     }
-    if (configError || isSpotifyConfigError(error)) {
+    if (isSpotifyConfigError(accessError)) {
       return {
         kind: 'setup',
         title: 'Spotify is not configured',
@@ -187,7 +173,7 @@ export default function Player({ variant = 'tab', showSearch = false, showQueue 
       };
     }
     return null;
-  }, [configError, error]);
+  }, [accessError]);
 
   const refresh = React.useCallback(async () => {
     try {
@@ -225,7 +211,7 @@ export default function Player({ variant = 'tab', showSearch = false, showQueue 
       setState(optimisticState);
       if (showQueue) setQueue(nextQueue);
       setDevices(nextDevices?.devices || []);
-      setError('');
+      setAccessError(null);
       if (scrub === null) {
         const nextVolume = frozen && optimistic?.volume_percent != null
           ? optimistic.volume_percent
@@ -235,7 +221,12 @@ export default function Player({ variant = 'tab', showSearch = false, showQueue 
         }
       }
     } catch (err) {
-      setError(err?.message || 'Unable to load Spotify');
+      if (isSpotifyAccessIssue(err)) {
+        setAccessError(err);
+      } else {
+        setAccessError(null);
+        console.error('Spotify player refresh failed', err);
+      }
     } finally {
       setLoading(false);
     }
@@ -352,7 +343,11 @@ export default function Player({ variant = 'tab', showSearch = false, showQueue 
       refresh();
     } catch (err) {
       setState((prev) => (prev ? { ...prev, is_playing: !next } : prev));
-      setError(err?.message || 'Failed to update playback');
+      if (isSpotifyAccessIssue(err)) {
+        setAccessError(err);
+      } else {
+        console.error('Spotify playback update failed', err);
+      }
     }
   };
 
@@ -365,7 +360,11 @@ export default function Player({ variant = 'tab', showSearch = false, showQueue 
       await setRepeat(next);
       refresh();
     } catch (err) {
-      setError(err?.message || 'Failed to update repeat');
+      if (isSpotifyAccessIssue(err)) {
+        setAccessError(err);
+      } else {
+        console.error('Spotify repeat update failed', err);
+      }
       refresh();
     }
   };
@@ -381,7 +380,11 @@ export default function Player({ variant = 'tab', showSearch = false, showQueue 
       const res = await searchTracks(query.trim());
       setSearchResults(res?.tracks?.items || []);
     } catch (err) {
-      setError(err?.message || 'Search failed');
+      if (isSpotifyAccessIssue(err)) {
+        setAccessError(err);
+      } else {
+        console.error('Spotify search failed', err);
+      }
     } finally {
       setSearching(false);
     }
@@ -553,8 +556,6 @@ export default function Player({ variant = 'tab', showSearch = false, showQueue 
             <span className="spotify-pill">{isPlaying ? 'Playing' : 'Paused'}</span>
           </div>
 
-          {error ? <div className="spotify-subtitle">{error}</div> : null}
-
           <div className="spotify-main">
             <div
               className={`spotify-cover ${variant === 'widget' ? 'spotify-tap' : ''}`}
@@ -613,7 +614,11 @@ export default function Player({ variant = 'tab', showSearch = false, showQueue 
                     await setShuffle(nextShuffle);
                     refresh();
                   } catch (err) {
-                    setError(err?.message || 'Failed to update shuffle');
+                    if (isSpotifyAccessIssue(err)) {
+                      setAccessError(err);
+                    } else {
+                      console.error('Spotify shuffle update failed', err);
+                    }
                     refresh();
                   }
                 }} title="Shuffle">
