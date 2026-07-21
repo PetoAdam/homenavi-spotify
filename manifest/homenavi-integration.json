@@ -2,10 +2,15 @@
   "schema_version": 1,
   "id": "spotify",
   "name": "Spotify",
-  "version": "1.0.6",
+  "version": "1.0.7",
   "publisher": "Homenavi",
   "homepage": "https://spotify.com",
   "verified": false,
+  "auth": {
+    "public_paths": [
+      "/api/admin/auth/callback"
+    ]
+  },
   "ui": {
     "sidebar": {
       "enabled": true,
