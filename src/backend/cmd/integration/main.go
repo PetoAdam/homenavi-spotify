@@ -47,7 +47,6 @@ func main() {
 	spotifyClient, err := backend.NewSpotifyManagerFromEnv()
 	if err != nil {
 		log.Printf("spotify config missing: %v", err)
-		spotifyClient = nil
 	}
 	spotifyAuth := backend.NewSpotifyAuthAPI(setupStore, adminAuth, spotifyClient)
 
