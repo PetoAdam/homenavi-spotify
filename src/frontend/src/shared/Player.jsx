@@ -127,12 +127,10 @@ export default function Player({ variant = 'tab', showSearch = false, showQueue 
   const [searchQuery, setSearchQuery] = React.useState('');
   const [searchResults, setSearchResults] = React.useState([]);
   const [searching, setSearching] = React.useState(false);
-  const [canShowQueue, setCanShowQueue] = React.useState(showQueue);
   const [bgCover, setBgCover] = React.useState('');
   const [bgPrev, setBgPrev] = React.useState('');
   const [coverIsBright, setCoverIsBright] = React.useState(false);
   const [isTitleMarquee, setIsTitleMarquee] = React.useState(false);
-  const containerRef = React.useRef(null);
   const fadeTimerRef = React.useRef(null);
   const titleRef = React.useRef(null);
   const debounceRef = React.useRef(null);
@@ -254,20 +252,6 @@ export default function Player({ variant = 'tab', showSearch = false, showQueue 
       }
     };
   }, [cover, bgCover]);
-
-  React.useEffect(() => {
-    if (variant !== 'widget' || !containerRef.current) return undefined;
-    const node = containerRef.current;
-    const observer = new ResizeObserver((entries) => {
-      for (const entry of entries) {
-        const height = entry.contentRect?.height || 0;
-        const allow = height >= 300;
-        setCanShowQueue(allow);
-      }
-    });
-    observer.observe(node);
-    return () => observer.disconnect();
-  }, [variant]);
 
   React.useEffect(() => {
     if (!cover) {
@@ -402,7 +386,6 @@ export default function Player({ variant = 'tab', showSearch = false, showQueue 
   }, [searchQuery, showSearch]);
 
   const deviceId = state?.device?.id;
-  const showQueueBlock = showQueue && (variant !== 'widget' || canShowQueue);
   const handleOpenTab = () => {
     if (variant !== 'widget') return;
     try {
@@ -422,7 +405,6 @@ export default function Player({ variant = 'tab', showSearch = false, showQueue 
 
   return (
     <div
-      ref={containerRef}
       className={['spotify-shell', variant === 'widget' ? 'spotify-compact' : '', coverIsBright ? 'cover-bright' : 'cover-dark'].join(' ')}
     >
       {showSearch && variant === 'tab' ? (
@@ -698,7 +680,7 @@ export default function Player({ variant = 'tab', showSearch = false, showQueue 
             </div>
           </div>
 
-          {showQueueBlock ? (
+          {showQueue ? (
             <div className="spotify-queue">
               <div className="spotify-subtitle"><FontAwesomeIcon icon={faListUl} style={{ marginRight: 6 }} />Queue</div>
               {queue?.queue?.length ? (
@@ -714,9 +696,7 @@ export default function Player({ variant = 'tab', showSearch = false, showQueue 
                 <div className="spotify-empty">Queue is empty.</div>
               )}
             </div>
-          ) : (variant === 'widget' && showQueue ? (
-            <div className="spotify-queue spotify-queue-placeholder" aria-hidden="true" />
-          ) : null)}
+          ) : null}
         </div>
       </div>
     </div>

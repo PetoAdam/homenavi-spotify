@@ -2,7 +2,7 @@
   "schema_version": 1,
   "id": "spotify",
   "name": "Spotify",
-  "version": "1.0.9",
+  "version": "1.0.10",
   "publisher": "Homenavi",
   "homepage": "https://spotify.com",
   "verified": false,
@@ -30,6 +30,7 @@
       "type": "integration.spotify.player",
       "display_name": "Spotify Player",
       "description": "Control playback, queue, and devices.",
+      "default_size_hint": "sm",
       "entry": { "kind": "iframe", "url": "/widgets/player/" },
       "requested_scopes": ["integration.spotify.read", "integration.spotify.control"]
     }
